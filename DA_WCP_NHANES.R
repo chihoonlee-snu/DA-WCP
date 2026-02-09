@@ -15,7 +15,6 @@ setwd("C:/Users/lchk0/OneDrive/바탕 화면/Research/DA-WCP/Code")
 source("KLIEP.R")
 source("DA_WCP.R")
 
-#
 
 #####################################################################################
 #
@@ -668,6 +667,7 @@ ggplot(df_cat_g, aes(x = subgroup, y = coverage, fill = subgroup)) +
     legend.position = "none"
   )
 dev.off()
+
 
 
 
