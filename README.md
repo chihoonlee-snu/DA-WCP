@@ -2,7 +2,7 @@
 
 This repository contains the R code used in **"Predicting Current Outcomes From Historical Survey Data With Weighted Conformal Prediction"** by Chihoon Lee, Sungkyu Jung, and Hyokyoung G. Hong.
 
-The code implements design-adapted weighted conformal prediction (DA-WCP), its group-conditional counterpart, the comparison method GWCP, the simulation studies, and the NHANES application in the manuscript and its online supplementary material.
+The code implements design-adapted weighted conformal prediction (DA-WCP), the simulation studies, and the NHANES application in the manuscript and its online supplementary material.
 
 ## Directory structure
 
