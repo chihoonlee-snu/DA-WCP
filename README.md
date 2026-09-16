@@ -32,23 +32,41 @@ The NHANES analyses also require an internet connection because the public NHANE
 
 ## Description of the R files
 
+| File | Description |
+|---|---|
+| `Code/KLIEP.R` | Implements the Kullback–Leibler Importance Estimation Procedure (KLIEP) with Gaussian kernels and estimates subgroup-specific density ratios. |
+| `Code/DA_WCP.R` | Defines the main `DA_WCP()` function, including weighted conformal cutoffs, continuous AR and CQR scores, categorical scores, and marginal and group-conditional prediction sets for DA-WCP and GWCP. |
+| `Code/DA_WCP_simulation.R` | Conducts the five main simulation scenarios (S1)–(S5) for marginal and group-conditional DA-WCP and GWCP. |
+| `Code/DA_WCP_NHANES.R` | Prepares the NHANES 1999–2004 and 2015–March 2020 data, uses ACS counts to construct the target subgroup proportions, applies the continuous and categorical methods, and evaluates coverage over repeated random splits. The density ratios are re-estimated for every split. |
+| `Code/DA_WCP_NHANES_overlap.R` | Produces subgroup-specific mirrored histograms for assessing overlap in BMI, HDL-C, and total cholesterol between the historical and current NHANES surveys. |
+| `Code/DA_WCP_supp_setting_1.R` | Conducts all four heteroscedastic cases in additional simulation Setting 1 and produces the plots for case (d). |
+| `Code/DA_WCP_supp_setting_2.R` | Conducts both cases in additional simulation Setting 2 and produces the plots for case (b). |
+| `Code/DA_WCP_supp_H.R` | Contains two sensitivity analyses: a comparison of one and four strata, and the PPSWOR-within-selected-PSUs analysis under varying degrees of PSU composition heterogeneity. |
+| `Code/DA_WCP_supp_ICC.R` | Examines sensitivity to within-PSU dependence over a range of intraclass correlations. |
+| `Code/DA_WCP_supp_smallgroup.R` | Contains the basic small-subgroup analysis and the analyses based on truncation and regularization of the estimated density ratios. |
+| `Code/DA_WCP_supp_nonresponse.R` | Examines violations of the nonresponse assumption by allowing the response probability at time 2 to depend on the covariates. |
+| `Code/DA_WCP_supp_temporalshift.R` | Examines violations of temporal invariance in the conditional outcome distribution. |
+
+<!--
 The section, figure, and table numbers below refer to the current revised manuscript and its online supplementary material.
 
-| File | Description | Location in the paper | Related results |
-|---|---|---|---|
-| `Code/KLIEP.R` | Implements the Kullback–Leibler Importance Estimation Procedure (KLIEP) with Gaussian kernels and estimates subgroup-specific density ratios. | Main Section 4; Supplementary Section S1 | This file supplies the density-ratio estimates used by the other analyses and does not produce a figure by itself. |
-| `Code/DA_WCP.R` | Defines the main `DA_WCP()` function, including weighted conformal cutoffs, continuous AR and CQR scores, categorical scores, and marginal and group-conditional prediction sets for DA-WCP and GWCP. | Main Sections 4–5; Supplementary Section S7 | This file supplies the principal estimation procedure and does not produce a figure by itself. |
-| `Code/DA_WCP_simulation.R` | Conducts the five main simulation scenarios (S1)–(S5) for marginal and group-conditional DA-WCP and GWCP. | Main Section 6; detailed design in Supplementary Section S11 | Main Figures 2 and 3. |
-| `Code/DA_WCP_NHANES.R` | Prepares the NHANES 1999–2004 and 2015–March 2020 data, uses ACS counts to construct the target subgroup proportions, applies the continuous and categorical methods, and evaluates coverage over repeated random splits. The density ratios are re-estimated for every split. | Main Section 7; Supplementary Sections S14.1, S14.2, S14.4, and S14.5 | Main Figure 4, main Table 4, and Supplementary Figures S18–S19. |
-| `Code/DA_WCP_NHANES_overlap.R` | Produces subgroup-specific mirrored histograms for assessing overlap in BMI, HDL-C, and total cholesterol between the historical and current NHANES surveys. | Supplementary Section S14.3 | Supplementary Figures S15–S17. |
-| `Code/DA_WCP_supp_setting_1.R` | Conducts all four heteroscedastic cases in additional simulation Setting 1 and produces the plots for case (d). | Supplementary Section S12.1 | Panel (d) of Supplementary Figures S1, S2, and S4. |
-| `Code/DA_WCP_supp_setting_2.R` | Conducts both cases in additional simulation Setting 2 and produces the plots for case (b). | Supplementary Section S12.2 | Panel (b) of Supplementary Figures S6–S8. |
-| `Code/DA_WCP_supp_H.R` | Contains two sensitivity analyses: a comparison of one and four strata, and the PPSWOR-within-selected-PSUs analysis under varying degrees of PSU composition heterogeneity. | Supplementary Section S13.1 | Supplementary Table S3 and Figure S9. |
-| `Code/DA_WCP_supp_ICC.R` | Examines sensitivity to within-PSU dependence over a range of intraclass correlations. | Supplementary Section S13.2 | Supplementary Figure S10. |
-| `Code/DA_WCP_supp_smallgroup.R` | Contains the basic small-subgroup analysis and the analyses based on truncation and regularization of the estimated density ratios. | Supplementary Section S13.3 | Supplementary Tables S4–S5 and Figures S11–S12. |
-| `Code/DA_WCP_supp_nonresponse.R` | Examines violations of the nonresponse assumption by allowing the response probability at time 2 to depend on the covariates. | Supplementary Section S13.4 | Supplementary Figure S13. |
-| `Code/DA_WCP_supp_temporalshift.R` | Examines violations of temporal invariance in the conditional outcome distribution. | Supplementary Section S13.5 | Supplementary Figure S14. |
+| File | Location in the paper | Related results |
+|---|---|---|
+| `Code/KLIEP.R` | Main Section 4; Supplementary Section S1 | This file supplies the density-ratio estimates used by the other analyses and does not produce a figure by itself. |
+| `Code/DA_WCP.R` | Main Sections 4–5; Supplementary Section S7 | This file supplies the principal estimation procedure and does not produce a figure by itself. |
+| `Code/DA_WCP_simulation.R` | Main Section 6; detailed design in Supplementary Section S11 | Main Figures 2 and 3. |
+| `Code/DA_WCP_NHANES.R` | Main Section 7; Supplementary Sections S14.1, S14.2, S14.4, and S14.5 | Main Figure 4, main Table 4, and Supplementary Figures S18–S19. |
+| `Code/DA_WCP_NHANES_overlap.R` | Supplementary Section S14.3 | Supplementary Figures S15–S17. |
+| `Code/DA_WCP_supp_setting_1.R` | Supplementary Section S12.1 | Panel (d) of Supplementary Figures S1, S2, and S4. |
+| `Code/DA_WCP_supp_setting_2.R` | Supplementary Section S12.2 | Panel (b) of Supplementary Figures S6–S8. |
+| `Code/DA_WCP_supp_H.R` | Supplementary Section S13.1 | Supplementary Table S3 and Figure S9. |
+| `Code/DA_WCP_supp_ICC.R` | Supplementary Section S13.2 | Supplementary Figure S10. |
+| `Code/DA_WCP_supp_smallgroup.R` | Supplementary Section S13.3 | Supplementary Tables S4–S5 and Figures S11–S12. |
+| `Code/DA_WCP_supp_nonresponse.R` | Supplementary Section S13.4 | Supplementary Figure S13. |
+| `Code/DA_WCP_supp_temporalshift.R` | Supplementary Section S13.5 | Supplementary Figure S14. |
+-->
 
+<!--
 ## Correspondence between output files and manuscript figures
 
 Some figures in the manuscript combine two or more files produced by the R analyses. Their correspondence is given below.
@@ -75,7 +93,7 @@ Some figures in the manuscript combine two or more files produced by the R analy
 | `DA_WCP_NHANES_overlap_tc.pdf` | Supplementary Figure S17 |
 | `LDL_continuous_coverage_g.pdf` | Supplementary Figure S18 |
 | `LDL_categorical_coverage_g.pdf` | Supplementary Figure S19 |
-
+-->
 
 
 ## Data
