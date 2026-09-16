@@ -2,7 +2,7 @@
 
 This repository contains the R code used in **"Predicting Current Outcomes From Historical Survey Data With Weighted Conformal Prediction"** by Chihoon Lee, Sungkyu Jung, and Hyokyoung G. Hong.
 
-The code implements design-adapted weighted conformal prediction (DA-WCP), the simulation studies, and the NHANES application in the manuscript and its online supplementary material.
+The code implements design-adapted weighted conformal prediction (DA-WCP) and reproduces the simulation studies and NHANES application reported in the manuscript and its online supplementary material.
 
 ## Directory structure
 
@@ -14,7 +14,7 @@ DA-WCP/
 `-- README.md
 ```
 
-All file paths are relative to the main repository directory. The analyses should be started from this directory. The R files read the supplied data from `Data/` and save numerical results and figures in `Figures/`.
+All file paths are relative to the main repository directory. The analyses should be run from this directory. The R files read the supplied data from `Data/` and save numerical results and figures in `Figures/`.
 
 ## Software requirements
 
@@ -36,16 +36,16 @@ The NHANES analyses also require an internet connection because the public NHANE
 |---|---|
 | `Code/KLIEP.R` | Implements the Kullback–Leibler Importance Estimation Procedure (KLIEP) with Gaussian kernels and estimates subgroup-specific density ratios. |
 | `Code/DA_WCP.R` | Defines the main `DA_WCP()` function, including weighted conformal cutoffs, continuous AR and CQR scores, categorical scores, and marginal and group-conditional prediction sets for DA-WCP and GWCP. |
-| `Code/DA_WCP_simulation.R` | Conducts the five main simulation scenarios (S1)–(S5) for marginal and group-conditional DA-WCP and GWCP. |
-| `Code/DA_WCP_NHANES.R` | Prepares the NHANES 1999–2004 and 2015–March 2020 data, uses ACS counts to construct the target subgroup proportions, applies the continuous and categorical methods, and evaluates coverage over repeated random splits. The density ratios are re-estimated for every split. |
+| `Code/DA_WCP_simulation.R` | Conducts simulations under the five main scenarios (S1)–(S5) for marginal and group-conditional DA-WCP and GWCP. |
+| `Code/DA_WCP_NHANES.R` | Prepares the NHANES 1999–2004 and 2015–March 2020 data, uses ACS counts to construct the target subgroup proportions, applies the continuous and categorical methods, and evaluates coverage over repeated random splits. |
 | `Code/DA_WCP_NHANES_overlap.R` | Produces subgroup-specific mirrored histograms for assessing overlap in BMI, HDL-C, and total cholesterol between the historical and current NHANES surveys. |
-| `Code/DA_WCP_supp_setting_1.R` | Conducts all four heteroscedastic cases in additional simulation Setting 1 and produces the plots for case (d). |
-| `Code/DA_WCP_supp_setting_2.R` | Conducts both cases in additional simulation Setting 2 and produces the plots for case (b). |
-| `Code/DA_WCP_supp_H.R` | Contains two sensitivity analyses: a comparison of one and four strata, and the PPSWOR-within-selected-PSUs analysis under varying degrees of PSU composition heterogeneity. |
-| `Code/DA_WCP_supp_ICC.R` | Examines sensitivity to within-PSU dependence over a range of intraclass correlations. |
+| `Code/DA_WCP_supp_setting_1.R` | Conducts simulations for all four heteroscedastic cases in Setting 1 of the additional simulations. |
+| `Code/DA_WCP_supp_setting_2.R` | Conducts simulations for both cases in Setting 2 of the additional simulations. |
+| `Code/DA_WCP_supp_H.R` | Contains two sensitivity analyses: a comparison of one and four strata, and the PPSWOR-within-strata approximation under varying degrees of PSU subgroup composition heterogeneity. |
+| `Code/DA_WCP_supp_ICC.R` | Examines sensitivity to violations of Assumption 1 under varying levels of within-PSU dependence. |
 | `Code/DA_WCP_supp_smallgroup.R` | Contains the basic small-subgroup analysis and the analyses based on truncation and regularization of the estimated density ratios. |
-| `Code/DA_WCP_supp_nonresponse.R` | Examines violations of the nonresponse assumption by allowing the response probability at time 2 to depend on the covariates. |
-| `Code/DA_WCP_supp_temporalshift.R` | Examines violations of temporal invariance in the conditional outcome distribution. |
+| `Code/DA_WCP_supp_nonresponse.R` | Examines violations of the nonresponse assumption (Assumption 2) by allowing the response probability at $t=2$ to depend on the covariates. |
+| `Code/DA_WCP_supp_temporalshift.R` | Examines violations of temporal invariance in the conditional outcome distribution (Assumption 5). |
 
 <!--
 The section, figure, and table numbers below refer to the current revised manuscript and its online supplementary material.
@@ -109,7 +109,7 @@ These files contain the ACS-based population control totals used to construct th
 
 ## Reproducing the results
 
-Run each analysis in a new R session with the main repository directory as the working directory. The following files conduct the analysis when they are sourced:
+Run each analysis in a new R session with the main repository directory as the working directory. Each of the following files begins its analysis when sourced; therefore, source one file at a time:
 
 ```r
 source("Code/DA_WCP_simulation.R")
