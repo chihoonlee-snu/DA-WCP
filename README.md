@@ -37,10 +37,10 @@ The NHANES analyses also require an internet connection because the public NHANE
 | `Code/KLIEP.R` | Implements the Kullback–Leibler Importance Estimation Procedure (KLIEP) with Gaussian kernels and estimates subgroup-specific density ratios. |
 | `Code/DA_WCP.R` | Defines the main `DA_WCP()` function, including weighted conformal cutoffs, continuous AR and CQR scores, categorical scores, and marginal and group-conditional prediction sets for DA-WCP and GWCP. |
 | `Code/DA_WCP_simulation.R` | Conducts simulations under the five main scenarios (S1)–(S5) for marginal and group-conditional DA-WCP and GWCP. |
-| `Code/DA_WCP_NHANES.R` | Prepares the NHANES 1999–2004 and 2015–March 2020 data, uses ACS counts to construct the target subgroup proportions, applies the continuous and categorical methods, and evaluates coverage over repeated random splits. |
+| `Code/DA_WCP_NHANES.R` | Prepares the NHANES 1999–2004 and 2015–March 2020 data, uses ACS counts to construct the target subgroup proportions, applies the continuous and categorical methods, and evaluates coverage. |
 | `Code/DA_WCP_NHANES_overlap.R` | Produces subgroup-specific mirrored histograms for assessing overlap in BMI, HDL-C, and total cholesterol between the historical and current NHANES surveys. |
-| `Code/DA_WCP_supp_setting_1.R` | Conducts simulations for all four heteroscedastic cases in Setting 1 of the additional simulations. |
-| `Code/DA_WCP_supp_setting_2.R` | Conducts simulations for both cases in Setting 2 of the additional simulations. |
+| `Code/DA_WCP_supp_setting_1.R` | Conducts simulations for Setting 1 of the additional simulations. |
+| `Code/DA_WCP_supp_setting_2.R` | Conducts simulations for Setting 2 of the additional simulations. |
 | `Code/DA_WCP_supp_H.R` | Contains two sensitivity analyses: a comparison of one and four strata, and the PPSWOR-within-strata approximation under varying degrees of PSU subgroup composition heterogeneity. |
 | `Code/DA_WCP_supp_ICC.R` | Examines sensitivity to violations of Assumption 1 under varying levels of within-PSU dependence. |
 | `Code/DA_WCP_supp_smallgroup.R` | Contains the basic small-subgroup analysis and the analyses based on truncation and regularization of the estimated density ratios. |
