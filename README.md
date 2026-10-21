@@ -1,6 +1,6 @@
 # DA-WCP
 
-This repository contains the R code used in **"Predicting Current Outcomes From Historical Survey Data With Weighted Conformal Prediction"** by Chihoon Lee, Sungkyu Jung, and Hyokyoung G. Hong.
+This repository contains the R code used in **[Predicting Current Outcomes From Historical Survey Data With Weighted Conformal Prediction](https://arxiv.org/abs/2606.10563)** by Chihoon Lee, Sungkyu Jung, and Hyokyoung G. Hong.
 
 The code implements design-adapted weighted conformal prediction (DA-WCP) and reproduces the simulation studies and NHANES application reported in the manuscript and its online supplementary material.
 
@@ -28,7 +28,7 @@ install.packages(c(
 ))
 ```
 
-The NHANES analyses also require an internet connection because the public NHANES XPT files are obtained directly from the CDC website.
+The public NHANES XPT files are obtained directly from the CDC website.
 
 ## Description of the R files
 
