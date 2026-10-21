@@ -1,3 +1,4 @@
+# From the repository root: source("Code/DA_WCP.R"); this changes the working directory to Code/.
 if (dir.exists("Code") && file.exists("Code/KLIEP.R")) setwd("Code")
 
 library(nnet)
@@ -11,8 +12,8 @@ library(quantreg)
 
 ############# 1. DA_WCP (main function) ##############
 
-# Returns the weighted empirical quantile used as the conformal cutoff.
-# A function to compute WCP-type threshold
+# wtvec: vector of estimated WCP weights; scvec: vector of nonconformity scores.
+# Weighted (1 - a) quantile of scvec; wtvec must sum to one and match score order.
 return_cutoff <- function(wtvec, scvec, a){
   ord = order(scvec)
   svec = sort(scvec)
@@ -25,31 +26,94 @@ return_cutoff <- function(wtvec, scvec, a){
   return(svec[i])
 }
 
-# KLIEP implementation function
+# KLIEP implementation
 source("KLIEP.R")
 
-# Expands class-probability matrices to a common set of outcome levels.
-# For categorical outcome, group-conditional methods
-matrix_adjust <- function(mat, ref = factor(0:4), colmat){
+# Align probabilities to outcome levels in the full training data (ref); missing classes get 0.
+# colmat supplies class labels when prediction columns are unnamed (binary NN).
+matrix_adjust <- function(mat, ref, colmat = colnames(mat)){
+  mat = as.matrix(mat)
+  if (!is.null(colnames(mat))) colmat = colnames(mat)
+  if (ncol(mat) == 1L && length(colmat) == 2L) mat = cbind(1 - mat[, 1], mat[, 1])
+  ind = match(as.character(colmat), as.character(ref))
+  if (length(ind) != ncol(mat) || anyNA(ind)) stop("Prediction columns must match outcome levels.")
   ret = matrix(0, nrow = nrow(mat), ncol = length(ref))
   colnames(ret) = ref
-  ret[, ref %in% colmat] = mat
+  ret[, ind] = mat
   return(ret)
 }
 
 
-# For continuous outcome, returns nrow(dtest)*2 (left, right endpoints)
-# For categorical outcome, returns nrow(dtest)*M (0 or 1 for each category)
-# val_type : marg, group
-# score_type : ar, cqr (for continuous outcomes) / rf, nn, xgb (for categorical outcomes)
+# DA_WCP: input data and arguments
+#
+# Data  : data frames with one row per person; var_* arguments are column names.
+#
+# All datasets require fully observed covariates.
+# dtra  : t = 1 observations with observed outcomes; used to fit the outcome model.
+# dcal  : separate t = 1 observations with observed outcomes; used for calibration.
+# dttra : t = 1 observations excluding dcal (including dtra); used to estimate weights.
+#         Outcomes may be missing. If all t = 1 outcomes are observed, use dttra = dtra.
+# d2    : t = 2 observations used to estimate weights; outcomes may be missing.
+# dtest : independently generated test data with observed outcomes in simulations,
+#         or current covariate data for constructing prediction sets in real-data applications.
+#         Observed outcomes are required for internal coverage evaluation when !simul && eval.
+#
+# All frames need X/Z/G; dtra/dcal/dttra/d2 also need H when specified.
+# Y must be observed in dtra/dcal and, for evaluation, dtest.
+# Prediction with eval = FALSE does not require Y in dtest.
+#
+# var_x    : continuous covariates (X), e.g. c("tc", "bmi", "hdl").
+# var_y    : outcome (Y); numeric for AR/CQR, factor for classification.
+# var_z    : categorical covariates (Z).
+# var_g    : demographic subgroup variables (G).
+# var_h    : sampling-stratum variables. Use character(0) for absent Z/G/H.
+# var_wt_x : survey-weight column for individuals with observed covariates.
+# var_wt_y : survey-weight column for individuals with observed outcomes and covariates.
+#
+# val_type  : "marg" = marginal; "group" = group-conditional.
+# score_type: "ar"/"cqr" for continuous Y; "rf"/"nn"/"xgb" for categorical Y.
+# gwcp      : FALSE = DA-WCP; TRUE = GWCP (no density-ratio adjustment).
+# alpha     : miscoverage level; 0.2 targets 80% coverage.
+# p2_vec    : population proportions of G at t = 2, summing to one, in the order of
+#             levels(interaction(dtra[, var_g, drop = FALSE], drop = TRUE)).
+#             If omitted when simul = FALSE, estimated from d2 using var_wt_x.
+# n_alpha   : CQR evaluates n_alpha^2 lower/upper quantile pairs.
+# rvec      : TRUE reuses stored rvec_cal instead of fitting KLIEP.
+# rvec_cal  : KLIEP density-ratio estimates for dcal rows, in the same row order;
+#             reuse only for the same split, covariates, and KLIEP settings.
+# R         : number of KLIEP cross-validation folds when kliep_cv = TRUE.
+# sig_wo_cv : kernel bandwidth when kliep_cv = FALSE.
+# kliep_cv  : TRUE selects the KLIEP bandwidth by cross-validation.
+# simul     : TRUE fits models without survey weights and skips internal evaluation.
+# eval      : TRUE returns coverage and, for continuous Y, average interval length
+#             when simul = FALSE.
+# return_diagnostics: TRUE additionally returns raw and normalized calibration weights,
+#   total weight by stratum, historical group proportions within strata, and H.
+#   Useful for checking extreme weights and whether each stratum has total weight 1/H.
+#   Available only for marginal DA-WCP (val_type = "marg", gwcp = FALSE).
+#   Use eval = FALSE or simul = TRUE; otherwise, the function returns before adding diagnostics.
+#
+# Returns a list: result_mat (rows match dtest), rvec_cal, and evaluation results
+# when !simul && eval. result_mat has two interval endpoints for continuous Y, or
+# one 0/1 inclusion column per factor level for categorical Y.
+#
+# Example: continuous Y, no separate Z or sampling strata.
+# fit <- DA_WCP(dtra, dcal, dttra, d2, dtest,
+#   var_x = c("tc", "bmi", "hdl"), var_y = "y",
+#   var_z = character(0), var_g = c("sex", "age", "race"),
+#   var_h = character(0), val_type = "marg", score_type = "ar",
+#   var_wt_x = "wt_x", var_wt_y = "wt_y", eval = FALSE)
 
-# Fits marginal or group-conditional DA-WCP/GWCP prediction sets and evaluates them when requested.
 DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var_h, val_type, score_type, 
                    gwcp = F, var_wt_x = NA, var_wt_y = NA, alpha = 0.2, p2_vec = NA, n_alpha = 5, 
                    rvec = F, rvec_cal = NA, R = 4, sig_wo_cv = 1.2, kliep_cv = F, simul = F, eval = T,
                    return_diagnostics = FALSE){
+
+  if (!simul && eval && (!(var_y %in% names(dtest)) || anyNA(dtest[[var_y]]))) {
+    stop("Observed outcomes in dtest are required when simul = FALSE and eval = TRUE.")
+  }
   
-  # Define new variable (z_tilde)
+  # Joint (Z, G) cells for density-ratio estimation.
   var_zt = c(var_z, var_g)
   
   # (alpha_l, alpha_h) grid for CQR score
@@ -57,6 +121,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
   alpha_h = seq(from = 0.5, to = 1.0, length.out = (n_alpha+2))[-c(1, (n_alpha+2))]
   alpha_grid = as.matrix(expand.grid(alpha_l, alpha_h))
   
+  # Encode groups/strata using dtra as the reference.
   ## -------------------- counts --------------------
   K_zt <- if (length(var_zt) == 0) 1L else nrow(dtra %>% dplyr::count(dplyr::across(dplyr::all_of(var_zt))))
   K_z  <- if (length(var_z)  == 0) 1L else nrow(dtra %>% dplyr::count(dplyr::across(dplyr::all_of(var_z))))
@@ -121,11 +186,12 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
   }
   
   
-  # Regression formula
+  # Marginal model: X + Z + G; group model: X + Z.
   formula_m <- as.formula(paste(var_y, "~", paste(c(var_x, var_z, var_g), collapse = " + ")))
   formula_g <- as.formula(paste(var_y, "~", paste(c(var_x, var_z), collapse = " + ")))
   
-  ### Estimating subgroup-proportions
+  ### Estimating subgroup proportions
+  # q1h: P1(G | stratum); v1/v2: P1/P2(Z | G).
   q1h_mat = matrix(nrow = H, ncol = K_g) # Training demographic proportion for each stratum
   q2h_mat = matrix(nrow = H, ncol = K_g) # t = 2 dataset demographic proportion for each stratum (for evaluation)
   v1_mat = matrix(nrow = K_g, ncol = K_z)
@@ -139,7 +205,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
     }
   }
   
-  # Only for marginal method
+  # For marginal methods only.
   if(val_type == "marg"){
     for(h in 1:H){
       if(!simul & eval){
@@ -155,7 +221,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
 
   if(val_type == "marg" & gwcp) q1h_mat[1, ] = proportions(table(factor(dcal$g, levels = 1:K_g)))
   
-  # For both marginal, group-conditional methods, only DA-WCP
+  # For both marginal and group-conditional DA-WCP.
   if(!gwcp){
     for(k_g in 1:K_g){
       dttra_g = dttra[dttra$g == k_g, ]
@@ -167,6 +233,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
   }
   
   ### Estimating subgroup-specific density-ratio functions (KLIEP)
+  # Estimate f2(X | Z,G) / f1(X | Z,G) and evaluate it at dcal.
   if(!rvec & !gwcp){
     rvec_cal = vector(length = nrow(dcal))
     for(k_zt in 1:K_zt){
@@ -176,6 +243,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
       
       cat(k_zt, "th group KLIEP progressing (n1 = ", nrow(dttra_zt), ", n2 = ", nrow(d2_zt), ") \n", sep = "")
       
+      # Standardize all samples using the current cell's mean/SD.
       mu_vec = colMeans(d2_zt)
       sd_vec = apply(d2_zt, 2, sd)
       
@@ -187,6 +255,8 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
   }
   
   ### Assigning estimated WCP weights to calibration data
+  # Marginal DA-WCP: r(X|Z,G) * P2(Z|G)/P1(Z|G) * P2(G)/P1(G|stratum).
+  # Group DA-WCP drops the last factor; GWCP uses only G composition.
   weight_vec = rep(1, length = nrow(dcal))
   
   if(val_type == "marg" & !gwcp){
@@ -286,7 +356,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
         length_vec[ind] = mean(length_mat[, ind])
       }
       
-      # (alpha_l, alpha_h) that yields shortest average interval length
+      # Quantile pair (alpha_l, alpha_h) with the shortest average interval length.
       ind_cqr = which.min(length_vec)
       selected_alpha = c(alpha_grid[ind_cqr, 1], alpha_grid[ind_cqr, 2])
       
@@ -309,6 +379,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
     
     ### Categorical outcome
     if(score_type %in% c("xgb", "rf", "nn")){
+      # Scale X using dtra mean/SD.
       scaled_dtra_x <- scale(dtra[, var_x])
       
       scaled_dtra = dtra
@@ -328,17 +399,22 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
     
     # (3) XGBoost score
     if(score_type == "xgb"){
-      xgb_model_tra <- model.matrix(as.formula(paste(var_y, "~ . - 1")), scaled_dtra[, c(var_x, var_y, var_z, var_g)])
+      # Build predictor-only matrices with shared training levels and contrasts.
+      xgb_terms <- terms(reformulate(c(var_x, var_z, var_g), intercept = FALSE))
+      xgb_xlevels <- .getXlevels(xgb_terms, scaled_dtra)
+      xgb_model_tra <- model.matrix(xgb_terms, scaled_dtra)
       xgb_y <- as.numeric(scaled_dtra[[var_y]]) - 1
       if(simul) xgb_dtra <- xgb.DMatrix(data = xgb_model_tra, label = xgb_y)
       if(!simul) xgb_dtra <- xgb.DMatrix(data = xgb_model_tra, label = xgb_y, weight = scaled_dtra[[var_wt_y]])
       fit <- xgb.train(params = list(objective = "multi:softprob", num_class = M), data = xgb_dtra, nrounds = 1000, verbose = 0)
       
-      xgb_model_cal <- model.matrix(as.formula(paste(var_y, "~ . - 1")), scaled_dcal[, c(var_x, var_y, var_z, var_g)])
+      xgb_model_cal <- model.matrix(xgb_terms, scaled_dcal, xlev = xgb_xlevels,
+                                     contrasts.arg = attr(xgb_model_tra, "contrasts"))
       pred_cal <- predict(fit, newdata = xgb_model_cal)
       pred_mat <- if (is.matrix(pred_cal)) pred_cal else matrix(pred_cal, ncol = M, byrow = TRUE)
       
-      xgb_model_test <- model.matrix(as.formula(paste(var_y, "~ . - 1")), scaled_dtest[, c(var_x, var_y, var_z, var_g)])
+      xgb_model_test <- model.matrix(xgb_terms, scaled_dtest, xlev = xgb_xlevels,
+                                      contrasts.arg = attr(xgb_model_tra, "contrasts"))
       pred_test <- predict(fit, newdata = xgb_model_test)
       test_mat <- if (is.matrix(pred_test)) pred_test else matrix(pred_test, ncol = M, byrow = TRUE)
     }
@@ -363,6 +439,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
       test_mat <- predict(fit, scaled_dtest, type = "raw")
     }
     
+    # Score: 1 - P_hat(Y); include class j if P_hat(j) >= 1 - cutoff.
     # WCP-type threshold for categorical outcomes
     if(score_type %in% c("rf", "xgb", "nn")){
       score_vec = rep(1, nrow(scaled_dcal))
@@ -388,7 +465,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
     
     if(score_type %in% c("ar", "cqr")) result_mat = matrix(nrow = nrow(dtest), ncol = 2)
     if(score_type %in% c("xgb", "rf", "nn")){
-      M = max(as.numeric(dtra[[var_y]]))
+      M = nlevels(dtra[[var_y]])
       result_mat = matrix(0, nrow = nrow(dtest), ncol = M)
     }
     
@@ -446,7 +523,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
           length_vec_g[ind] = mean(length_mat_g[, ind])
         }
         
-        # (alpha_l, alpha_h) that yields shortest average interval length
+        # Quantile pair (alpha_l, alpha_h) with the shortest average interval length.
         ind_cqr_g = which.min(length_vec_g)
         selected_alpha_g = c(alpha_grid[ind_cqr_g, 1], alpha_grid[ind_cqr_g, 2])
         
@@ -473,46 +550,49 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
         scaled_dtest_g[, var_x] <- scale(dtest_g[, var_x],
                                          center = attr(scaled_dtra_x_g, "scaled:center"),
                                          scale = attr(scaled_dtra_x_g, "scaled:scale"))
-        M = max(as.numeric(dtra[[var_y]]))
+        M = nlevels(dtra[[var_y]])
       }
       
       # (3) XGBoost score
       if(score_type == "xgb"){
-        xgb_model_tra_g <- model.matrix(as.formula(paste(var_y, "~ . - 1")), scaled_dtra_g[, c(var_x, var_y, var_z)])
+        xgb_terms_g <- terms(reformulate(c(var_x, var_z), intercept = FALSE))
+        xgb_xlevels_g <- .getXlevels(xgb_terms_g, scaled_dtra_g)
+        xgb_model_tra_g <- model.matrix(xgb_terms_g, scaled_dtra_g)
         xgb_y_g <- as.numeric(scaled_dtra_g[[var_y]]) - 1
         if(simul) xgb_dtra_g <- xgb.DMatrix(data = xgb_model_tra_g, label = xgb_y_g)
         if(!simul) xgb_dtra_g <- xgb.DMatrix(data = xgb_model_tra_g, label = xgb_y_g, weight = scaled_dtra_g[[var_wt_y]])
         fit <- xgb.train(params = list(objective = "multi:softprob", num_class = M), data = xgb_dtra_g, nrounds = 1000, verbose = 0)
         
-        xgb_model_cal_g <- model.matrix(as.formula(paste(var_y, "~ . - 1")), scaled_dcal_g[, c(var_x, var_y, var_z)])
+        xgb_model_cal_g <- model.matrix(xgb_terms_g, scaled_dcal_g, xlev = xgb_xlevels_g,
+                                         contrasts.arg = attr(xgb_model_tra_g, "contrasts"))
         pred_cal_g <- predict(fit, newdata = xgb_model_cal_g)
         pred_mat_g <- if (is.matrix(pred_cal_g)) pred_cal_g else matrix(pred_cal_g, ncol = M, byrow = TRUE)
         
-        xgb_model_test_g <- model.matrix(as.formula(paste(var_y, "~ . - 1")), scaled_dtest_g[, c(var_x, var_y, var_z)])
+        xgb_model_test_g <- model.matrix(xgb_terms_g, scaled_dtest_g, xlev = xgb_xlevels_g,
+                                          contrasts.arg = attr(xgb_model_tra_g, "contrasts"))
         pred_test_g <- predict(fit, newdata = xgb_model_test_g)
         test_mat_g <- if (is.matrix(pred_test_g)) pred_test_g else matrix(pred_test_g, ncol = M, byrow = TRUE)
       }
       
       # (4) Random forest score
       if(score_type == "rf"){
-        colmat = unique(scaled_dtra_g[[var_y]])
         if(!simul) fit <- ranger(formula = formula_g, data = scaled_dtra_g, probability = TRUE, 
                                  classification = TRUE, verbose = FALSE, case.weights = scaled_dtra_g[[var_wt_y]])
         if(simul) fit <- ranger(formula = formula_g, data = scaled_dtra_g, probability = TRUE, 
                                 classification = TRUE, verbose = FALSE)
-        pred_mat_g <- matrix_adjust(predict(fit, scaled_dcal_g)$predictions, colmat = colmat)
-        test_mat_g <- matrix_adjust(predict(fit, scaled_dtest_g)$predictions, colmat = colmat)
+        pred_mat_g <- matrix_adjust(predict(fit, scaled_dcal_g)$predictions, ref = levels(dtra[[var_y]]))
+        test_mat_g <- matrix_adjust(predict(fit, scaled_dtest_g)$predictions, ref = levels(dtra[[var_y]]))
       }
       
       # (5) Neural net score
       if(score_type == "nn"){
-        colmat = unique(scaled_dtra_g[[var_y]])
+        colmat = levels(droplevels(scaled_dtra_g[[var_y]]))
         if(!simul) fit <- nnet(formula = formula_g, data = scaled_dtra_g, weights = scaled_dtra_g[[var_wt_y]], 
                                decay = 0.01, size = M, maxit = 10000, trace = F)
         if(simul) fit <- nnet(formula = formula_g, data = scaled_dtra_g, decay = 0.01, 
                               size = M, maxit = 10000, trace = F)
-        pred_mat_g <- matrix_adjust(predict(fit, scaled_dcal_g, type = "raw"), colmat = colmat)
-        test_mat_g <- matrix_adjust(predict(fit, scaled_dtest_g, type = "raw"), colmat = colmat)
+        pred_mat_g <- matrix_adjust(predict(fit, scaled_dcal_g, type = "raw"), ref = levels(dtra[[var_y]]), colmat = colmat)
+        test_mat_g <- matrix_adjust(predict(fit, scaled_dtest_g, type = "raw"), ref = levels(dtra[[var_y]]), colmat = colmat)
       }
       
       # WCP-type threshold for categorical outcomes
@@ -544,7 +624,7 @@ DA_WCP <- function(dtra, dcal, dttra, d2, dtest, var_x, var_y, var_z, var_g, var
     }
   }
   
-  # Optional diagnostics for the supplementary marginal DA-WCP simulations.
+  # Marginal DA-WCP diagnostics (eval = FALSE or simul = TRUE).
   if (return_diagnostics && val_type == "marg" && !gwcp) {
     return(list(result_mat = result_mat, rvec_cal = rvec_cal,
                 weight_vec = weight_vec, weight_vec_raw = weight_vec_raw,
