@@ -1,4 +1,4 @@
-# DA-WCP (Design-Adapted Weighted Conformal Prediction)
+# DA-WCP
 
 This repository contains the R code used in **"Predicting Current Outcomes From Historical Survey Data With Weighted Conformal Prediction"** by Chihoon Lee, Sungkyu Jung, and Hyokyoung G. Hong.
 
